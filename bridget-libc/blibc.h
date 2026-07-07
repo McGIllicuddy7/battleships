@@ -128,7 +128,7 @@ blibc_str_t blibc_str_push(blibc_arena_t * arena, blibc_str_t st, char c);
 blibc_str_t blibc_str_fmt(blibc_arena_t * arena, const char * fmt, ...);
 
 #define BLIBC_STR_FMT "%.*s"
-#define BLIBC_STR_ARG(ST) (int)((ST).len), (ST).items
+#define BLIBC_STR_ARG(ST) (i64)((ST).len), (ST).items
 
 blibc_str_vec_t blibc_str_split_by(blibc_arena_t * arena, blibc_str_t str, char delim);
 blibc_str_vec_t blibc_str_split_whitespace(blibc_arena_t * arena, blibc_str_t str);
@@ -326,7 +326,47 @@ __unused inline static void Name##_clear(Name * self){\
             current = next;\
         }\
         self->buckets[i] =0;\
-    }\ 
+    }\
+}\
+typedef struct {\
+    Name * ptr;\
+    size_t idx;\
+    Name##_bucket_t* current;\
+}Name##_iterator_t;\
+__unused inline static Name##_iterator_t Name##_begin_iter(Name * self){\
+    Name##_iterator_t out;\
+    out.ptr = self;\
+    size_t idx =0;\
+    Name##_bucket_t * current =0;\
+    while (idx < self->bucket_len){\
+        if(self->buckets[idx]){\
+            current = self->buckets[idx];\
+            break;\
+        }\
+        idx+=1;\
+    }\
+    out.idx = idx;\
+    out.current = current;\
+    return out;\
+}\
+__unused inline static Name##_key_value_pair_t * Name##_iter_next(Name##_iterator_t * iter){\
+    if(!iter->current){\
+        return 0;\
+    }\
+    Name##_key_value_pair_t * out = &iter->current->pair;\
+    if(iter->current->next){\
+        iter->current = iter->current->next;\
+    }else{\
+        iter->current =0;\
+        while(iter->idx<iter->ptr->bucket_len){\
+            if(iter->ptr->buckets[iter->idx]){\
+                iter->current =iter->ptr->buckets[iter->idx];\
+                break;\
+            }\
+        }\
+        iter->idx+=1;\
+    }\
+    return out;\
 }\
 
 void debug_alloc_free_counts(void);
