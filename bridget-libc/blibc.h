@@ -5,6 +5,10 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <string.h>
+void * blibc_debug_alloc(size_t count, size_t size);
+void blibc_debug_free(void * ptr);
+#define mem_alloc blibc_debug_alloc 
+#define mem_free blibc_debug_free 
 
 #define BLIBC_IMPROVE_TYPE(Type, Name)\
     typedef struct {\
@@ -38,7 +42,7 @@
     
 #define BLIBC_GET(list, at) (*((blibc_check_bounds(list.len, at)),&list.items[at]))
 
-#define BLIBC_MAKE_SLICE(Type, count) ((Type){.items =calloc(sizeof(((Type*)(64))->items[0]),count), .len = count});
+#define BLIBC_MAKE_SLICE(Type, count) ((Type){.items =mem_alloc(sizeof(((Type*)(64))->items[0]),count), .len = count});
 
 struct blibc_arena_t;
 typedef int8_t i8;
@@ -207,7 +211,7 @@ __unused inline static size_t Name##_len(Name * self){\
     return out;\
 }\
 __unused inline static void Name##_resize(Name * self, size_t size){\
-    Name##_bucket_t ** new_set = calloc(sizeof(Name##_bucket_t*),size);\
+    Name##_bucket_t ** new_set = mem_alloc(sizeof(Name##_bucket_t*),size);\
     for(size_t i =0; i<self->bucket_len; i++){\
         Name##_bucket_t * current = self->buckets[i];\
         while(current){\
@@ -227,11 +231,11 @@ __unused inline static void Name##_resize(Name * self, size_t size){\
     Name##_bucket_t ** old = self->buckets;\
     self->buckets = new_set;\
     self->bucket_len = size;\
-    free(old);\
+    mem_free(old);\
 }\
 __unused inline static Name* Name##_create(    u64 (*key_hash_fn)(KeyType),bool (*key_eq_fn)(KeyType, KeyType),void (*key_destructor)(KeyType), void (*value_destructor)(ValueType), size_t bucket_count){\
-    Name * out = malloc(sizeof(Name));\
-    out->buckets = calloc(bucket_count,sizeof(Name##_bucket_t*));\
+    Name * out = mem_alloc(1,sizeof(Name));\
+    out->buckets = mem_alloc(bucket_count,sizeof(Name##_bucket_t*));\
     out->bucket_len = bucket_count;\
     out->key_hash_fn = key_hash_fn;\
     out->key_eq_fn = key_eq_fn;\
@@ -268,7 +272,7 @@ __unused inline static void Name##_insert(Name * self, KeyType key, ValueType va
         prev = &current->next;\
         current = current->next;\
     }\
-    Name##_bucket_t * tmp = malloc(sizeof(Name##_bucket_t));\
+    Name##_bucket_t * tmp = mem_alloc(1,sizeof(Name##_bucket_t));\
     tmp->next = 0;\
     tmp->pair.key = key;\
     tmp->pair.value = value;\
@@ -304,12 +308,27 @@ __unused inline static void Name##_destroy(Name * self){\
             Name##_bucket_t * next = current->next;\
             self->key_destructor(current->pair.key);\
             self->value_destructor(current->pair.value);\
-            free(current);\
+            mem_free(current);\
             current = next;\
         }\
     }\
-    free(self->buckets);\
-    free(self);\
+    mem_free(self->buckets);\
+    mem_free(self);\
+}\
+__unused inline static void Name##_clear(Name * self){\
+       for(size_t i =0; i<self->bucket_len; i++){\
+        Name##_bucket_t * current = self->buckets[i];\
+        while(current){\
+            Name##_bucket_t * next = current->next;\
+            self->key_destructor(current->pair.key);\
+            self->value_destructor(current->pair.value);\
+            mem_free(current);\
+            current = next;\
+        }\
+        self->buckets[i] =0;\
+    }\ 
 }\
 
+void debug_alloc_free_counts(void);
+void print_alloc_free_counts(void);
 #endif

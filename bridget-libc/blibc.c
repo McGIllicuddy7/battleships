@@ -14,22 +14,22 @@ typedef struct blibc_arena_t  {
 
 
 blibc_arena_t * blibc_arena_create(void){
-    blibc_private_arena_t * out = malloc(sizeof(blibc_private_arena_t)+PAGE_SIZE*16);
+    blibc_private_arena_t * out = mem_alloc(sizeof(blibc_private_arena_t)+PAGE_SIZE*16,1);
     assert(sizeof(blibc_private_arena_t)<=64);
     uint8_t * buffer = (uint8_t*)out+64;
     out->buffer = buffer;
-    out->capacity = 4096*16;
+    out->capacity = PAGE_SIZE*16;
     out->next =0;
     out->offset = 0;
     return out;
 }
 
 blibc_arena_t * blibc_arena_sized(size_t page_count){
-    blibc_private_arena_t * out = malloc(sizeof(blibc_private_arena_t)+PAGE_SIZE*page_count);
+    blibc_private_arena_t * out = mem_alloc(sizeof(blibc_private_arena_t)+PAGE_SIZE*page_count,1);
     assert(sizeof(blibc_private_arena_t)<=64);
     uint8_t * buffer = (uint8_t*)out+64;
     out->buffer = buffer;
-    out->capacity = page_count;
+    out->capacity = page_count*PAGE_SIZE;
     out->next =0;
     out->offset = 0;
     return out; 
@@ -40,14 +40,14 @@ void blibc_arena_destroy(blibc_private_arena_t * arena){
         return;
     }
     blibc_arena_destroy(arena->next);
-    free(arena);
+    mem_free(arena);
 }
 
 void * blibc_arena_alloc(blibc_private_arena_t * arena, size_t count_bytes){
     if((count_bytes%16) != 0){
         count_bytes += 16-count_bytes%16;
     }
-    if(arena->offset+count_bytes<arena->capacity){
+    if(arena->offset+count_bytes<arena->capacity-16){
         uint8_t * current = arena->buffer+arena->offset;
         arena->offset+= count_bytes;
         return (void*)(current);
@@ -60,6 +60,9 @@ void * blibc_arena_alloc(blibc_private_arena_t * arena, size_t count_bytes){
                 new_cap = (arena->capacity/PAGE_SIZE)*PAGE_SIZE;
             }
             size_t page_count = new_cap/PAGE_SIZE;
+            if (page_count<8){
+                page_count =8;
+            }
             arena->next = blibc_arena_sized(page_count);
             return blibc_arena_alloc(arena->next, count_bytes);
         }        
@@ -189,7 +192,7 @@ int blibc_write_string_to_file(blibc_str_t filename, blibc_str_t str){
     char * c_filename = blibc_str_to_c_string(0, filename);
     FILE * f = fopen(c_filename, "wb");
     if(!f){
-        free(c_filename);
+        mem_free(c_filename);
         return -1;
     }
     size_t out = fwrite(str.items, 1, str.len,f);
@@ -220,3 +223,24 @@ blibc_str_t blibc_str_trim(blibc_str_t st){
     return out;
 }
 
+u64 allocation_count = 0;
+u64 free_count =0;
+
+void * blibc_debug_alloc(size_t count, size_t size){
+    allocation_count +=1;
+    return calloc(count, size);
+}
+
+void blibc_debug_free(void * ptr){
+    free_count += 1;
+    free(ptr);
+}
+
+void debug_alloc_free_counts(void){
+    printf("allocations:%zu, frees:%zu\n", (size_t)allocation_count, (size_t)free_count);
+    assert(allocation_count == free_count);
+}
+
+void print_alloc_free_counts(void){
+    printf("allocations:%zu, frees:%zu", (size_t)allocation_count, (size_t)free_count);
+}
