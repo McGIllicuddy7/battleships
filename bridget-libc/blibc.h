@@ -86,7 +86,7 @@ void * blibc_arena_realloc(blibc_arena_t * arena,void * ptr, size_t old_size, si
     if((Vec).cap<1){\
         (Vec).items = blibc_arena_alloc((Vec).arena, sizeof(*(Vec).items)*8); (Vec).cap = 8;\
     }else{\
-        (Vec).items = blibc_arena_realloc((Vec).arena, (Vec).items, sizeof(*(Vec).items)*(Vec).cap, sizeof((Vec).items)*(Vec).cap*2); (Vec).cap*= 2;\
+        (Vec).items = blibc_arena_realloc((Vec).arena, (Vec).items, sizeof(*(Vec).items)*(Vec).cap, sizeof(*(Vec).items)*(Vec).cap*2); (Vec).cap*= 2;\
     }\
     (Vec).items[(Vec).len] = Item; \
     (Vec).len += 1;\
@@ -128,7 +128,7 @@ blibc_str_t blibc_str_push(blibc_arena_t * arena, blibc_str_t st, char c);
 blibc_str_t blibc_str_fmt(blibc_arena_t * arena, const char * fmt, ...);
 
 #define BLIBC_STR_FMT "%.*s"
-#define BLIBC_STR_ARG(ST) (i64)((ST).len), (ST).items
+#define BLIBC_STR_ARG(ST) (int)((ST).len), (ST).items
 
 blibc_str_vec_t blibc_str_split_by(blibc_arena_t * arena, blibc_str_t str, char delim);
 blibc_str_vec_t blibc_str_split_whitespace(blibc_arena_t * arena, blibc_str_t str);
@@ -371,4 +371,85 @@ __unused inline static Name##_key_value_pair_t * Name##_iter_next(Name##_iterato
 
 void debug_alloc_free_counts(void);
 void print_alloc_free_counts(void);
+
+typedef enum{
+	blibc_serial_data_tag_invalid,
+	blibc_serial_data_tag_u8, 
+	blibc_serial_data_tag_u16,
+	blibc_serial_data_tag_u32, 
+	blibc_serial_data_tag_u64, 
+	blibc_serial_data_tag_i8,
+	blibc_serial_data_tag_i16,
+	blibc_serial_data_tag_i32, 
+	blibc_serial_data_tag_i64,
+	blibc_serial_data_tag_f32, 
+	blibc_serial_data_tag_f64,
+	blibc_serial_data_tag_str, 
+	blibc_serial_data_tag_bool,
+	blibc_serial_data_tag_struct,
+	blibc_serial_data_tag_byte_list,
+	blibc_serial_data_tag_count,
+}blibc_serial_data_tag_t;
+
+typedef struct {
+	u8_vec_t data;
+}blibc_serializer_t;
+
+typedef struct {
+	u8_slice_t data;
+	size_t ptr; 
+	blibc_arena_t * allocator;
+}blibc_deserializer_t;
+
+void blibc_serialize_bytes(blibc_serializer_t * ser,u8 * start, size_t count);
+void blibc_serialize_u8_no_tag(blibc_serializer_t * ser, u8 value);
+void blibc_serialize_tag(blibc_serializer_t * ser, blibc_serial_data_tag_t tag);
+
+void blibc_serialize_u8(blibc_serializer_t * ser, u8 value);
+void blibc_serialize_u16(blibc_serializer_t * ser, u16 value);
+void blibc_serialize_u32(blibc_serializer_t * ser, u32 value);
+void blibc_serialize_u64(blibc_serializer_t * ser, u64 value);
+
+void blibc_serialize_i8(blibc_serializer_t * ser, i8 value);
+void blibc_serialize_i16(blibc_serializer_t * ser, i16 value);
+void blibc_serialize_i32(blibc_serializer_t * ser, i32 value);
+void blibc_serialize_i64(blibc_serializer_t * ser, i64 value);
+
+void blibc_serialize_f32(blibc_serializer_t * ser, f32 value);
+void blibc_serialize_f64(blibc_serializer_t * ser, f64 value);
+
+void blibc_serialize_bool(blibc_serializer_t * ser, bool b);
+
+void blibc_serialize_str(blibc_serializer_t * ser, blibc_str_t str);
+
+
+bool blibc_deserialize_bytes(blibc_deserializer_t * des, u8 * output, size_t count);
+
+bool_opt_t blibc_deserialize_check_tag(blibc_deserializer_t * des, blibc_serial_data_tag_t tag);
+u8_opt_t blibc_deserialize_u8_no_tag(blibc_deserializer_t * des);
+
+u8_opt_t blibc_deserialize_u8(blibc_deserializer_t * des);
+u16_opt_t blibc_deserialize_u16(blibc_deserializer_t * des);
+u32_opt_t blibc_deserialize_u32(blibc_deserializer_t * des);
+u64_opt_t blibc_deserialize_u64(blibc_deserializer_t * des);
+
+i8_opt_t blibc_deserialize_i8(blibc_deserializer_t * des);
+i16_opt_t blibc_deserialize_i16(blibc_deserializer_t * des);
+i32_opt_t blibc_deserialize_i32(blibc_deserializer_t * des);
+i64_opt_t blibc_deserialize_i64(blibc_deserializer_t * des);
+
+f32_opt_t blibc_deserialize_f32(blibc_deserializer_t * des);
+f64_opt_t blibc_deserialize_f64(blibc_deserializer_t *des);
+
+bool_opt_t blibc_deserialize_bool(blibc_deserializer_t * des);
+
+blibc_str_t blibc_deserialize_str(blibc_deserializer_t * des);
+
+
+void blibc_handle_endianness(u8 * byte_buffer, size_t count);
+u8_opt_t blibc_deserialize_u8_no_tag(blibc_deserializer_t * des);
+void blibc_serialize_u8_no_tag(blibc_serializer_t * ser, u8 value);
+
+
 #endif
+

@@ -18,11 +18,7 @@ static void destroy_str(str_t a){
      (void)a;
 }
 
-static void print_pair(int a, str_t * s, void *p){
-     int * p1 = p;
-     *p1 += 1;
-     printf("%d "STR_FMT"\n", a, STR_ARG(*s));
-}
+
 int main(void){
      arena_t * arena = arena_create();
      int_str_hash_map* map = int_str_hash_map_create(hash_int, int_eq, destroy_int, destroy_str, 100);
