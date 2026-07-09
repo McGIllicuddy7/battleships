@@ -295,7 +295,17 @@ typedef union{
 	f64 value;
 }f64_byte_union_t;
 
-void blibc_handle_endianness(u8 * byte_buffer, size_t count){}
+void blibc_handle_endianness(u8 * byte_buffer, size_t count){
+	if(count <= 1){
+		return;
+	}
+	for(size_t i =0; i<count/2; i++){
+		u8 tmp = byte_buffer[i];
+		u8 tmp2 = byte_buffer[count-i];
+		byte_buffer[i] = tmp;
+		byte_buffer[count-i] = tmp2;
+	}
+}
 
 u8_opt_t blibc_deserialize_u8_no_tag(blibc_deserializer_t * des){
 	if(des->ptr<des->data.len){
@@ -630,11 +640,11 @@ f32_opt_t blibc_deserialize_f32(blibc_deserializer_t * des){
 	}
 	f32_byte_union_t buf;
 	for(size_t i =0; i<sizeof(buf.bytes); i++){
-        	u8_opt_t tmp = blibc_deserialize_u8_no_tag(des);
-        	if(!tmp.is_valid){
-        		return (f32_opt_t){.is_valid = false, .value =0.};
-        	}
-        	buf.bytes[i] = tmp.value;
+		u8_opt_t tmp = blibc_deserialize_u8_no_tag(des);
+		if(!tmp.is_valid){
+		return (f32_opt_t){.is_valid = false, .value =0.};
+		}
+		buf.bytes[i] = tmp.value;
 	}
 	blibc_handle_endianness(buf.bytes, sizeof(buf));
 	return (f32_opt_t){.is_valid = true, .value = buf.value};
@@ -651,13 +661,13 @@ f64_opt_t blibc_deserialize_f64(blibc_deserializer_t *des){
 	f64_byte_union_t buf;
 	for(size_t i =0; i<sizeof(buf.bytes); i++){
 		u8_opt_t tmp = blibc_deserialize_u8_no_tag(des);
-        	if(!tmp.is_valid){
-        		return (f64_opt_t){.is_valid = false, .value =0.};
-        	}
-        	buf.bytes[i] = tmp.value;
+		if(!tmp.is_valid){
+				return (f64_opt_t){.is_valid = false, .value =0.};
+		}
+		buf.bytes[i] = tmp.value;
 	}
-    blibc_handle_endianness(buf.bytes, sizeof(buf));
-    return (f64_opt_t){.is_valid = true, .value = buf.value};
+	blibc_handle_endianness(buf.bytes, sizeof(buf));
+	return (f64_opt_t){.is_valid = true, .value = buf.value};
 }
 
 bool_opt_t blibc_deserialize_bool(blibc_deserializer_t * des){

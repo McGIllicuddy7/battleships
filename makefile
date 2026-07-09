@@ -1,2 +1,2 @@
-make: src/main.c bridget-libc/blibc.c
-	gcc src/main.c bridget-libc/blibc.c -Wall -Wextra -std=c99 -pedantic -Wmissing-prototypes -Wstrict-prototypes -Wold-style-definition -g3 -fsanitize=address
+make: src/main.c bridget-libc/blibc.c bridget-libc/blibc-platform.c
+	gcc src/main.c bridget-libc/blibc.c bridget-libc/blibc-platform.c -Wall -Wextra -std=c99 -pedantic -Wmissing-prototypes -Wstrict-prototypes -Wold-style-definition -g3 -fsanitize=address -I /opt/homebrew/include/
