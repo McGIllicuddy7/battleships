@@ -10,6 +10,8 @@ void blibc_debug_free(void * ptr);
 #define mem_alloc blibc_debug_alloc 
 #define mem_free blibc_debug_free 
 
+#define UNUSED __attribute__((unused))
+
 #define BLIBC_IMPROVE_TYPE(Type, Name)\
     typedef struct {\
         Type value;\
@@ -199,7 +201,7 @@ typedef struct {\
     void (*key_destructor)(KeyType);\
     void (*value_destructor)(ValueType);\
 }Name;\
-__unused inline static size_t Name##_len(Name * self){\
+UNUSED inline static size_t Name##_len(Name * self){\
     size_t out =0;\
     for(size_t i =0; i<self->bucket_len; i++){\
         Name##_bucket_t * current = self->buckets[i];\
@@ -210,7 +212,7 @@ __unused inline static size_t Name##_len(Name * self){\
     }\
     return out;\
 }\
-__unused inline static void Name##_resize(Name * self, size_t size){\
+UNUSED inline static void Name##_resize(Name * self, size_t size){\
     Name##_bucket_t ** new_set = mem_alloc(sizeof(Name##_bucket_t*),size);\
     for(size_t i =0; i<self->bucket_len; i++){\
         Name##_bucket_t * current = self->buckets[i];\
@@ -233,7 +235,7 @@ __unused inline static void Name##_resize(Name * self, size_t size){\
     self->bucket_len = size;\
     mem_free(old);\
 }\
-__unused inline static Name* Name##_create(    u64 (*key_hash_fn)(KeyType),bool (*key_eq_fn)(KeyType, KeyType),void (*key_destructor)(KeyType), void (*value_destructor)(ValueType), size_t bucket_count){\
+UNUSED inline static Name* Name##_create(    u64 (*key_hash_fn)(KeyType),bool (*key_eq_fn)(KeyType, KeyType),void (*key_destructor)(KeyType), void (*value_destructor)(ValueType), size_t bucket_count){\
     Name * out = mem_alloc(1,sizeof(Name));\
     out->buckets = mem_alloc(bucket_count,sizeof(Name##_bucket_t*));\
     out->bucket_len = bucket_count;\
@@ -243,7 +245,7 @@ __unused inline static Name* Name##_create(    u64 (*key_hash_fn)(KeyType),bool 
     out->value_destructor = value_destructor;\
     return out;\
 }\
-__unused inline static ValueType* Name##_get(Name* self, KeyType* key){\
+UNUSED inline static ValueType* Name##_get(Name* self, KeyType* key){\
     size_t hash = self->key_hash_fn(*key)%self->bucket_len;\
     Name##_bucket_t* current =  self->buckets[hash];\
     while(current){\
@@ -254,7 +256,7 @@ __unused inline static ValueType* Name##_get(Name* self, KeyType* key){\
     }\
     return 0;\
 }\
-__unused inline static void Name##_insert(Name * self, KeyType key, ValueType value){\
+UNUSED inline static void Name##_insert(Name * self, KeyType key, ValueType value){\
     if(Name##_len(self)/2>self->bucket_len){\
         Name##_resize(self, self->bucket_len*2);\
     }\
@@ -278,7 +280,7 @@ __unused inline static void Name##_insert(Name * self, KeyType key, ValueType va
     tmp->pair.value = value;\
     *prev = tmp;\
 }\
-__unused inline static void Name##_remove(Name * self, KeyType key){\
+UNUSED inline static void Name##_remove(Name * self, KeyType key){\
     size_t hash = self->key_hash_fn(key)%self->bucket_len;\
     Name##_bucket_t ** prev = &self->buckets[hash];\
     Name##_bucket_t * current = self->buckets[hash];\
@@ -292,7 +294,7 @@ __unused inline static void Name##_remove(Name * self, KeyType key){\
         current = current->next;\
     }\
 }\
-__unused inline static void Name##_for_each(Name * self, void (*to_run)(KeyType, ValueType *, void *), void * data){\
+UNUSED inline static void Name##_for_each(Name * self, void (*to_run)(KeyType, ValueType *, void *), void * data){\
     for(size_t i =0; i<self->bucket_len; i++){\
         Name##_bucket_t * current = self->buckets[i];\
         while(current){\
@@ -301,7 +303,7 @@ __unused inline static void Name##_for_each(Name * self, void (*to_run)(KeyType,
         }\
     }\
 }\
-__unused inline static void Name##_destroy(Name * self){\
+UNUSED inline static void Name##_destroy(Name * self){\
     for(size_t i =0; i<self->bucket_len; i++){\
         Name##_bucket_t * current = self->buckets[i];\
         while(current){\
@@ -315,7 +317,7 @@ __unused inline static void Name##_destroy(Name * self){\
     mem_free(self->buckets);\
     mem_free(self);\
 }\
-__unused inline static void Name##_clear(Name * self){\
+UNUSED inline static void Name##_clear(Name * self){\
        for(size_t i =0; i<self->bucket_len; i++){\
         Name##_bucket_t * current = self->buckets[i];\
         while(current){\
@@ -333,7 +335,7 @@ typedef struct {\
     size_t idx;\
     Name##_bucket_t* current;\
 }Name##_iterator_t;\
-__unused inline static Name##_iterator_t Name##_begin_iter(Name * self){\
+UNUSED inline static Name##_iterator_t Name##_begin_iter(Name * self){\
     Name##_iterator_t out;\
     out.ptr = self;\
     size_t idx =0;\
@@ -349,7 +351,7 @@ __unused inline static Name##_iterator_t Name##_begin_iter(Name * self){\
     out.current = current;\
     return out;\
 }\
-__unused inline static Name##_key_value_pair_t * Name##_iter_next(Name##_iterator_t * iter){\
+UNUSED inline static Name##_key_value_pair_t * Name##_iter_next(Name##_iterator_t * iter){\
     if(!iter->current){\
         return 0;\
     }\
