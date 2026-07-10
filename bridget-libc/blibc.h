@@ -58,6 +58,9 @@ typedef uint64_t u64;
 typedef float f32;
 typedef double f64;
 
+typedef struct {u8 _;} unit;
+typedef struct {char chars[255]; u8 size;} smol_str_t;
+
 BLIBC_IMPROVE_TYPE(i8, i8)
 BLIBC_IMPROVE_TYPE(i16, i16)
 BLIBC_IMPROVE_TYPE(i32, i32)
@@ -128,6 +131,9 @@ BLIBC_IMPROVE_TYPE(blibc_str_t, blibc_str)
 blibc_str_t blibc_str_concat(blibc_arena_t * arena, blibc_str_t s1, blibc_str_t s2);
 blibc_str_t blibc_str_push(blibc_arena_t * arena, blibc_str_t st, char c);
 blibc_str_t blibc_str_fmt(blibc_arena_t * arena, const char * fmt, ...);
+bool blibc_str_eq(blibc_str_t a, blibc_str_t b);
+bool blibc_str_is_integer(blibc_str_t to_check);
+bool blibc_str_is_double(blibc_str_t to_check);
 
 #define BLIBC_STR_FMT "%.*s"
 #define BLIBC_STR_ARG(ST) (int)((ST).len), (ST).items

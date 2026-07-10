@@ -1,6 +1,7 @@
 #include <stdio.h>
 #define USING_BLIBC
 #include "../bridget-libc/blibc.h"
+#include "battleship.h"
 #include <raylib.h>
 
 int main(void){

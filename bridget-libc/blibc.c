@@ -727,3 +727,53 @@ bool_opt_t blibc_deserialize_check_tag(blibc_deserializer_t * des, blibc_serial_
 }
 
 
+bool blibc_str_eq(blibc_str_t a, blibc_str_t b){
+	if(a.len != b.len){
+		return false;
+	}
+	for(size_t i =0; i<a.len; i++){
+		if(a.items[i] != b.items[i]){
+			return false;
+		}
+	}
+	return true;
+}
+
+bool blibc_str_is_integer(blibc_str_t to_check){
+	if(to_check.len<1){
+		return false;
+	}
+	if(!(isnumber(to_check.items[0]) || to_check.items[0] == '-')){
+		return false;
+	}
+	if(to_check.items[0] == '-' && to_check.len<2){
+		return false;
+	}
+	for(size_t i = 1; i<to_check.len; i++){
+		if (!isnumber(to_check.items[i])){
+			return false;
+		}
+	}
+	return true;
+}
+bool blibc_str_is_double(blibc_str_t to_check){
+		if(to_check.len<1){
+		return false;
+	}
+	if(!(isnumber(to_check.items[0]) || to_check.items[0] == '-')){
+		return false;
+	}
+	if(to_check.items[0] == '-' && to_check.len<2){
+		return false;
+	}
+	bool has_hit_dot;
+	for(size_t i = 1; i<to_check.len; i++){
+		if (!isnumber(to_check.items[i])&& has_hit_dot){
+			return false;
+		}
+		if(to_check.items[i] == '.'){
+			has_hit_dot = true;
+		}
+	}
+	return true;
+}
