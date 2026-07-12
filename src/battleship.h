@@ -43,6 +43,7 @@ typedef struct {
     bool is_valid;
     u32 generation;
     u8 allegience;
+    blibc_str_t name;
     battleship_entity_kind_t kind;
     battleship_visible_data_t data;
     battleship_visible_data_t relativity_previous_states[PREVIOUS_STATE_STORED_COUNT];
@@ -88,4 +89,16 @@ battleship_move_vec_t player_calculate_actions(blibc_arena_t * arena, battleship
 
 
 battleship_move_vec_t ai_calculate_actions(blibc_arena_t *arena,battleship_game_t * game);
+
+battleship_move_opt_t parse_player_command(blibc_arena_t * arena,battleship_game_t *game, entity_ref_t target,blibc_str_t str);
+blibc_str_t battleship_get_line(blibc_arena_t * arena);
+i32 battleship_printf(const char * ptr, ...);
+
+battleship_move_t get_ai_ship_move(
+    battleship_game_t * game, entity_ref_t ship
+);
+
+void battleship_execute_move(battleship_game_t * game, battleship_move_t move);
+void battleship_state_update(battleship_game_t *state);
 #endif
+

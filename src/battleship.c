@@ -1,6 +1,7 @@
 #include "battleship.h"
 #include <stdio.h>
 #include <tgmath.h>
+#include <stdarg.h>
 void gameloop(void){
     bool has_quit = false;
     while (!has_quit){ 
@@ -46,7 +47,17 @@ void run_game(battleship_game_t * state){
 }
 
 void game_update(battleship_game_t * state){
-
+    blibc_arena_t * arena = blibc_arena_create();
+    battleship_move_vec_t player_moves = player_calculate_actions(arena, state);
+    battleship_move_vec_t ai_moves = ai_calculate_actions(arena, state);
+    for(size_t i =0; i<player_moves.len; i++){
+        battleship_execute_move(state,player_moves.items[i]);
+    }
+    for(size_t i =0; i<ai_moves.len; i++){
+        battleship_execute_move(state,ai_moves.items[i]);
+    }
+    battleship_state_update(state);
+    blibc_arena_destroy(arena);
 }
 
 void player_setup_entities(battleship_game_t * state){
@@ -126,6 +137,11 @@ battleship_entity_t get_observered_state(battleship_entity_t* entity, i64 from_x
     return out;
 }
 battleship_move_opt_t parse_player_command(blibc_arena_t * arena,battleship_game_t *game, entity_ref_t target,blibc_str_t str){
+    battleship_entity_t* et_ptr = get_entity(game, target);
+    if(!et_ptr){
+        goto done;
+    }
+    battleship_entity_t current_entity = *et_ptr;
     blibc_str_vec_t cmd = blibc_str_split_whitespace(arena,str);
     if(cmd.len<1){
         goto error;
@@ -154,6 +170,12 @@ battleship_move_opt_t parse_player_command(blibc_arena_t * arena,battleship_game
         move.target_z = z;
         return (battleship_move_opt_t){.is_valid = true, .value = move};
     }else if(blibc_str_eq(cmd.items[0], BLIBC_STR("help"))){
+        battleship_printf("commands:\n");
+        battleship_printf("to move towards a point:move {x} {y} {z}\n");
+        battleship_printf("to fire a missile at a target: fire missile at {name of target}\n");
+        battleship_printf("to fire laser at a target: fire laser at {name of target}\n");
+        battleship_printf("to show game state(relative to current ship): show\n");
+        battleship_printf("to show this message: help\n");
         goto done;
     }else if(blibc_str_eq(cmd.items[0], BLIBC_STR("fire"))){
         if(cmd.len<4){
@@ -171,11 +193,18 @@ battleship_move_opt_t parse_player_command(blibc_arena_t * arena,battleship_game
         if(!blibc_str_eq(cmd.items[2] ,BLIBC_STR("at"))){
             goto error;
         }
-        if(!blibc_str_is_integer(cmd.items[3])){
-            goto error;
+        i32 target_idx = -1;
+        for(i32 i =0; i< BATTLESHIP_MAX_ENTITY_COUNT; i++){
+            battleship_entity_t * ent = &game->entities[i];
+            if(!ent->is_valid){
+                continue;
+            }
+            if(blibc_str_eq(ent->name, cmd.items[3])){
+                target_idx = i;
+                break;
+            }
         }
-        size_t target_idx = atoll(blibc_str_to_c_string(arena, cmd.items[3]));
-        if(target_idx >= BATTLESHIP_MAX_ENTITY_COUNT){
+        if(target_idx == -1){
             goto error;
         }
         battleship_entity_t* out_target = &game->entities[target_idx];
@@ -184,26 +213,101 @@ battleship_move_opt_t parse_player_command(blibc_arena_t * arena,battleship_game
         }
         entity_ref_t target_ref = (entity_ref_t){.generation = out_target->generation, .idx = target_idx};
         if(target_idx == target.idx){
-            printf("ship cannot target itself\n");
+            battleship_printf("ship cannot target itself\n");
             goto error;
         }
     }else if(blibc_str_eq(cmd.items[0], BLIBC_STR("show"))){
+        for(size_t i =0; i<BATTLESHIP_MAX_ENTITY_COUNT; i++){
+            battleship_entity_t* ent = &game->entities[i];
+            if(!ent->is_valid){
+                continue;
+            }
+            battleship_entity_t ob_ent = get_observered_state(ent, current_entity.data.x, current_entity.data.y, current_entity.data.z);
+            if(ent->kind == TYPE_SHIP || ent->kind == TYPE_INANIMATE){
+                battleship_printf(BLIBC_STR_FMT"\n", BLIBC_STR_ARG(ent->name));
+                battleship_printf("   velocity: x:%lld y:%lld z:%lld\n", ob_ent.data.velocity_x, ob_ent.data.velocity_y, ob_ent.data.velocity_z);
+                battleship_printf("   position: x:%lld y:%lld z:%lld\n", ob_ent.data.x, ob_ent.data.y, ob_ent.data.z);
+            }
+        }
         goto done;
     }else{
         goto error;
     }
 error:
-    printf("error unknown command, enter \"help\" to get a list of acceptable commands\n");
+    battleship_printf("error unknown command, enter \"help\" to get a list of acceptable commands\n");
 done:
     return (battleship_move_opt_t){0};
 }
+
 battleship_move_vec_t player_calculate_actions(blibc_arena_t * arena,battleship_game_t * game){
     battleship_move_vec_t out = BLIBC_MAKE_VEC(arena, battleship_move_vec_t);
-
+    for(size_t i =0; i<BATTLESHIP_MAX_ENTITY_COUNT; i++){
+        if(game->entities[i].is_valid && game->entities[i].allegience == PLAYER_ALLEGIENCE){
+            entity_ref_t et;
+            et.generation = game->entities[i].generation;
+            et.idx = i;
+            battleship_printf("enter move for "BLIBC_STR_FMT": ", BLIBC_STR_ARG(game->entities[i].name));
+            while(true){
+                blibc_str_t str = battleship_get_line(arena);
+                battleship_move_opt_t move_opt = parse_player_command(arena, game, et,str);
+                if(move_opt.is_valid){
+                    BLIBC_VEC_PUSH(out, move_opt.value);
+                    break;
+                }
+            }
+        }
+    }
     return out;
 }
 
 battleship_move_vec_t ai_calculate_actions(blibc_arena_t * arena,battleship_game_t * game){
     battleship_move_vec_t out = BLIBC_MAKE_VEC(arena, battleship_move_vec_t);
+    for(size_t i = 0; i<BATTLESHIP_MAX_ENTITY_COUNT; i++){
+            if(game->entities[i].is_valid && game->entities[i].allegience == AI_ALLEGIENCE){
+                entity_ref_t ship;
+                ship.idx = i;
+                ship.generation = game->entities[i].generation;
+                battleship_move_t move = get_ai_ship_move(game, ship);
+                BLIBC_VEC_PUSH(out, move);
+            } 
+    }
     return out;
+}
+
+blibc_str_t battleship_get_line(blibc_arena_t * arena){
+    char buffer [1024] = {0};
+    fgets(buffer, 1024, stdin);
+    size_t len = strlen(buffer);
+    char * ptr = blibc_arena_alloc(arena, len);
+    blibc_str_t out;
+    out.items = ptr;
+    out.len = len;
+    return out;
+}
+
+i32 battleship_printf(const char * ptr, ...){
+    va_list list;
+    va_start(list, ptr);
+    i32 out = vfprintf(stdout,ptr, list);
+    va_end(list);
+    return out;
+}
+
+battleship_move_t get_ai_ship_move(
+    battleship_game_t * game, entity_ref_t ship
+){
+    battleship_move_t out = {0};
+    out.kind = MOVE_MOVE_TOWARD;
+    out.source = ship;
+    out.target_x = (rand()%1000-500)*100;
+    out.target_y = (rand()%1000-500)*100;
+    out.target_y = (rand()%1000-500)*100;
+    return out;
+}
+
+void battleship_execute_move(battleship_game_t * game, battleship_move_t move){
+
+}
+void battleship_state_update(battleship_game_t *state){
+
 }
