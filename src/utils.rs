@@ -2,11 +2,11 @@ use std::{
     collections::VecDeque,
     fmt::Debug,
     marker::PhantomData,
-    ops::DerefMut,
     ptr::null,
     sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub type FxType = i128;
@@ -286,6 +286,7 @@ pub struct ObjectShell<T> {
     generation: u64,
 }
 pub struct ObjectSet<T: 'static> {
+    creation_guard: Mutex<()>,
     objects: StaticRef<[RwLock<ObjectShell<T>>]>,
     destructor_queue: Mutex<VecDeque<(u64, u64)>>,
 }
@@ -361,6 +362,7 @@ impl<T: ?Sized + 'static> Clone for StaticRef<T> {
 impl<T: 'static> ObjectSet<T> {
     pub const fn new_static(list: &'static [RwLock<ObjectShell<T>>]) -> Self {
         Self {
+            creation_guard: Mutex::new(()),
             objects: StaticRef::new_static(list),
             destructor_queue: Mutex::new(VecDeque::new()),
         }
@@ -373,6 +375,7 @@ impl<T: 'static> ObjectSet<T> {
             list.push(RwLock::new(ObjectShell::new()));
         }
         Self {
+            creation_guard: Mutex::new(()),
             objects: StaticRef::new_dynamic(list.into()),
             destructor_queue: Mutex::new(VecDeque::new()),
         }
@@ -381,6 +384,7 @@ impl<T: 'static> ObjectSet<T> {
 
 impl<T: 'static> ObjectSet<T> {
     pub fn new_object(&self, v: T) -> ObjRef<T> {
+        let _guard = self.creation_guard.lock().unwrap();
         let objs = self.objects.get();
         for i in 0..objs.len() {
             let mut guard = match objs[i].try_write() {
@@ -410,6 +414,7 @@ impl<T: 'static> ObjectSet<T> {
     }
 
     pub fn delete_object_actual(&self, objr: ObjRef<T>) {
+        let _guard = self.creation_guard.lock().unwrap();
         let Some(guard) = self.objects.get().get(objr.idx as usize) else {
             return;
         };
@@ -427,6 +432,7 @@ impl<T: 'static> ObjectSet<T> {
     }
 
     pub fn garbage_collect(&self) {
+        let _guard = self.creation_guard.lock();
         loop {
             let mut tmp = self.destructor_queue.lock().unwrap();
             let Some((idx, genr)) = tmp.pop_front() else {
@@ -441,10 +447,57 @@ impl<T: 'static> ObjectSet<T> {
             }
         }
     }
+
+    pub fn for_each(&self, mut func: impl FnMut(&T, ObjRef<T>)) {
+        let objects = self.objects.get();
+        objects.iter().enumerate().for_each(|(idx, i)| {
+            let t = i.read().unwrap();
+            let genr = t.generation;
+            if let Some(rf) = t.value.as_ref() {
+                let rf2 = ObjRef {
+                    idx: idx as u64,
+                    generation: genr,
+                    rf: Some(self.objects.clone()),
+                };
+                func(rf, rf2);
+            }
+        });
+    }
+
+    pub fn for_each_mut(&self, mut func: impl FnMut(&mut T, ObjRef<T>)) {
+        let objects = self.objects.get();
+        objects.iter().enumerate().for_each(|(idx, i)| {
+            let mut t = i.write().unwrap();
+            let genr = t.generation;
+            if let Some(rf) = t.value.as_mut() {
+                let rf2 = ObjRef {
+                    idx: idx as u64,
+                    generation: genr,
+                    rf: Some(self.objects.clone()),
+                };
+                func(rf, rf2);
+            }
+        });
+    }
 }
 impl<T: 'static + Serialize + DeserializeOwned> ObjectSet<T> {
     pub fn save(&self) -> Result<String, serde_json::Error> {
-        serde_json::to_string_pretty(self.objects.get())
+        let _guard = self.creation_guard.lock().unwrap();
+        let mut max_idx = 0;
+        for (idx, i) in self.objects.get().iter().enumerate() {
+            if let Ok(t) = i.try_read() {
+                if t.value.is_some() {
+                    max_idx = idx;
+                }
+            } else {
+                max_idx = idx;
+            }
+        }
+        if self.objects.get().len() == 0 {
+            serde_json::to_string_pretty(self.objects.get())
+        } else {
+            serde_json::to_string_pretty(&self.objects.get()[0..=max_idx])
+        }
     }
     pub fn load(&self, str: &str) -> Result<(), serde_json::Error> {
         let t1 = &self.objects as *const _ as *const ();
@@ -469,6 +522,48 @@ impl<T: 'static + Serialize + DeserializeOwned> ObjectSet<T> {
             guard.value = None;
         }
         Ok(())
+    }
+}
+
+impl<T: 'static + Send + Sync> ObjectSet<T> {
+    pub fn for_each_par(&self, func: impl Fn(&T, ObjRef<T>) + Send + Sync) {
+        let objects = self.objects.get();
+        objects
+            .iter()
+            .enumerate()
+            .par_bridge()
+            .for_each(|(idx, i)| {
+                let t = i.read().unwrap();
+                let genr = t.generation;
+                if let Some(rf) = t.value.as_ref() {
+                    let rf2 = ObjRef {
+                        idx: idx as u64,
+                        generation: genr,
+                        rf: Some(self.objects.clone()),
+                    };
+                    func(rf, rf2);
+                }
+            });
+    }
+
+    pub fn for_each_mut_par(&self, func: impl Fn(&mut T, ObjRef<T>) + Send + Sync) {
+        let objects = self.objects.get();
+        objects
+            .iter()
+            .enumerate()
+            .par_bridge()
+            .for_each(|(idx, i)| {
+                let mut t = i.write().unwrap();
+                let genr = t.generation;
+                if let Some(rf) = t.value.as_mut() {
+                    let rf2 = ObjRef {
+                        idx: idx as u64,
+                        generation: genr,
+                        rf: Some(self.objects.clone()),
+                    };
+                    func(rf, rf2);
+                }
+            });
     }
 }
 
