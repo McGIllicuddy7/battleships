@@ -1,6 +1,7 @@
 use std::{
     collections::VecDeque,
     fmt::Debug,
+    marker::PhantomData,
     ops::DerefMut,
     ptr::null,
     sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
@@ -489,13 +490,18 @@ thread_local! {
     pub static CURRENT_OBJECT_SET_REF:Mutex<ObjectSetDeserializizationRef> = Mutex::new(ObjectSetDeserializizationRef { ptr: std::ptr::null()});
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+pub struct MarkerOptionStaticRefRwLockObjectShell<T> {
+    __phantom: PhantomData<T>,
+}
+
 pub fn deserialize_object_set_ref<'de, T, D>(
     _v: D,
 ) -> Result<Option<StaticRef<[RwLock<ObjectShell<T>>]>>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let tmp = Option::<bool>::deserialize(_v)?;
+    let tmp = Option::<MarkerOptionStaticRefRwLockObjectShell<T>>::deserialize(_v)?;
     assert!(tmp.is_none());
     CURRENT_OBJECT_SET_REF.with(|v| {
         let guard = v.lock().unwrap();
@@ -518,7 +524,7 @@ pub fn serialize_object_set_ref<T, S>(
 where
     S: serde::Serializer,
 {
-    ser.serialize_none()
+    Option::<MarkerOptionStaticRefRwLockObjectShell<T>>::None.serialize(ser)
 }
 
 impl<T: 'static> ObjRef<T> {
