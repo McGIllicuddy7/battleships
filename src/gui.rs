@@ -352,7 +352,7 @@ pub fn update_panel(
 }
 
 pub fn split_text_to_lines_to_render(l: &str, font_size: i32, max_width: i32) -> Vec<String> {
-    let char_width = ((font_size as f32 * 15.) / 32.).floor() as i32;
+    let char_width = ((font_size as f32 * 14.9) / 32.).floor() as i32;
     let mut current = String::new();
     let mut out = Vec::new();
     let mut dx = 0;
