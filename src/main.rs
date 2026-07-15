@@ -1,48 +1,40 @@
+use raylib::drawing::RaylibDraw;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{Fx, ObjRef, ObjectSet};
 pub mod battleship;
 pub mod gui;
 pub mod utils;
-#[derive(Clone, Serialize, Deserialize)]
-pub struct DebugTester {
-    pub x: i32,
-    pub prev: ObjRef<DebugTester>,
+
+use gui::rl;
+use rl::Color;
+
+use crate::gui::{
+    application_wrapper_done, application_wrapper_exit, draw_text, gets, left_panel_draw_text,
+    right_panel_draw_text, terminal_clear,
+};
+pub fn main() {
+    gui::run_gui_loop(|| {
+        main_func();
+        Ok(())
+    })
+    .unwrap();
 }
-impl Drop for DebugTester {
-    fn drop(&mut self) {
-        println!("dropped:{}", self.x);
-    }
-}
-pub static OBJECTS: ObjectSet<DebugTester> = create_static_object_set!(DebugTester, 4096);
-fn main() {
-    let load = true;
-    if !load {
-        let objects = ObjectSet::new_dynamic(4096);
-        let mut prev = ObjRef::new();
-        for i in 0..100 {
-            prev = objects.new_object(DebugTester {
-                x: i,
-                prev: prev.clone(),
-            });
+
+pub fn main_func() {
+    println!("hello world!:{}", 3);
+    draw_text("henlo there", 10, 10, 16, Color::WHITE);
+    left_panel_draw_text("this is a panel", 10, 10, 32, Color::WHITE);
+    right_panel_draw_text("this is also a panel", 10, 10, 32, Color::WHITE);
+    while !application_wrapper_done() {
+        let input = gets();
+        if input == "exit" {
+            break;
         }
-        loop {
-            let Ok(tmp) = prev.read_checked() else {
-                break;
-            };
-            let t2 = tmp.get().prev.clone();
-            println!("value:{}", tmp.get().x);
-            drop(tmp);
-            prev = t2;
+        if input == "clear" {
+            terminal_clear();
+            continue;
         }
-        std::fs::write("test.json", objects.save().unwrap()).unwrap();
-    } else {
-        let objects: ObjectSet<DebugTester> = ObjectSet::new_dynamic(4096);
-        let str = std::fs::read_to_string("test.json").unwrap();
-        objects.load(&str).unwrap();
-        objects.for_each_mut_par(|i, _| {
-            println!("iteration:{}", i.x);
-            i.x += 1;
-        })
+        println!("echo:{}", input);
     }
+    application_wrapper_exit();
 }
