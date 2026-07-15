@@ -1,9 +1,10 @@
 use std::{
-    collections::VecDeque,
+    collections::{HashMap, HashSet, VecDeque},
     fmt::Debug,
     marker::PhantomData,
     ptr::null,
-    sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    thread::ThreadId,
 };
 
 use rayon::iter::{ParallelBridge, ParallelIterator};
@@ -500,6 +501,7 @@ impl<T: 'static + Serialize + DeserializeOwned> ObjectSet<T> {
         }
     }
     pub fn load(&self, str: &str) -> Result<(), serde_json::Error> {
+        let _guard = self.creation_guard.lock().unwrap();
         let t1 = &self.objects as *const _ as *const ();
         CURRENT_OBJECT_SET_REF.with(|i| {
             i.lock().unwrap().ptr = t1;
@@ -791,3 +793,91 @@ impl std::fmt::Display for ObjectGetError {
 }
 
 impl std::error::Error for ObjectGetError {}
+
+pub struct GraphConnection {
+    pub to: usize,
+    pub distance: Fx,
+}
+
+pub struct GraphNode<T> {
+    pub connections: Vec<GraphConnection>,
+    pub value: T,
+}
+
+pub struct Graph<T> {
+    pub nodes: Vec<GraphNode<T>>,
+}
+
+impl<T> Graph<T> {
+    pub fn get_node(&self, at: usize) -> &GraphNode<T> {
+        &self.nodes[at]
+    }
+
+    pub fn get_node_mut(&mut self, at: usize) -> &mut GraphNode<T> {
+        &mut self.nodes[at]
+    }
+
+    pub fn astar(
+        &self,
+        start: usize,
+        end: usize,
+        heuristic: impl Fn(&GraphNode<T>, usize) -> Fx,
+    ) -> Option<Vec<usize>> {
+        let reconstruct_path = |came_from: &HashMap<usize, usize>, current: usize| {
+            let mut cur = current;
+            let mut total_path = vec![current];
+            while let Some(current) = came_from.get(&cur) {
+                cur = *current;
+                total_path.push(cur);
+            }
+            total_path
+        };
+        let find_min = |v: &HashSet<usize>, f_scores: &HashMap<usize, Fx>| {
+            let mut mn = Fx::new(1000000000000000000);
+            let mut min_idx = 0;
+            for i in v {
+                let Some(h) = f_scores.get(i) else {
+                    continue;
+                };
+                if *h < mn {
+                    min_idx = *i;
+                    mn = *h;
+                }
+            }
+            min_idx
+        };
+        let mut open_set = HashSet::new();
+        open_set.insert(start);
+        let mut came_from: HashMap<usize, usize> = HashMap::new();
+        let mut g_score = HashMap::new();
+        g_score.insert(start, Fx::new(0));
+        let mut f_score = HashMap::new();
+        f_score.insert(start, heuristic(&self.nodes[start], start));
+        while !open_set.is_empty() {
+            let current = find_min(&open_set, &f_score);
+            if current == end {
+                return Some(reconstruct_path(&came_from, current));
+            }
+            open_set.remove(&current);
+            for i in &self.nodes[current].connections {
+                let tentative_g_store = g_score[&current] + i.distance;
+                if let Some(tmp) = g_score.get(&i.to) {
+                    if tentative_g_store < *tmp {
+                        came_from.insert(i.to, current);
+                        g_score.insert(i.to, tentative_g_store);
+                        f_score
+                            .insert(i.to, tentative_g_store + heuristic(&self.nodes[i.to], i.to));
+                        open_set.insert(i.to);
+                    }
+                } else {
+                    came_from.insert(i.to, current);
+                    g_score.insert(i.to, tentative_g_store);
+                    f_score.insert(i.to, tentative_g_store + heuristic(&self.nodes[i.to], i.to));
+
+                    open_set.insert(i.to);
+                }
+            }
+        }
+        None
+    }
+}

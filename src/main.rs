@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::{Fx, ObjRef, ObjectSet};
 pub mod battleship;
+pub mod gui;
 pub mod utils;
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DebugTester {
     pub x: i32,
@@ -40,5 +40,9 @@ fn main() {
         let objects: ObjectSet<DebugTester> = ObjectSet::new_dynamic(4096);
         let str = std::fs::read_to_string("test.json").unwrap();
         objects.load(&str).unwrap();
+        objects.for_each_mut_par(|i, _| {
+            println!("iteration:{}", i.x);
+            i.x += 1;
+        })
     }
 }
