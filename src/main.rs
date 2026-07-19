@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 
 pub mod battleship;
 pub mod gui;
+pub mod parser;
+pub mod ship_components;
 pub mod utils;
-
 use gui::rl;
 use rl::Color;
 
