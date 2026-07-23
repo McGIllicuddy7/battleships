@@ -1,41 +1,35 @@
-use raylib::drawing::RaylibDraw;
-use serde::{Deserialize, Serialize};
+use crate::utils::Fx;
 
-pub mod battleship;
-pub mod gui;
+pub mod io;
 pub mod parser;
-pub mod ship_components;
+pub mod ship;
 pub mod utils;
-use gui::rl;
-use rl::Color;
-
-use crate::gui::{
-    application_wrapper_done, application_wrapper_exit, draw_text, gets, left_panel_draw_text,
-    right_panel_draw_text, terminal_clear,
-};
 pub fn main() {
-    gui::run_gui_loop(|| {
-        main_func();
-        Ok(())
-    })
-    .unwrap();
-}
-
-pub fn main_func() {
-    println!("hello world!:{}", 3);
-    draw_text("henlo there", 10, 10, 16, Color::WHITE);
-    left_panel_draw_text("this is a panel", 10, 10, 32, Color::WHITE);
-    right_panel_draw_text("this is also a panel", 10, 10, 32, Color::WHITE);
-    while !application_wrapper_done() {
-        let input = gets();
-        if input == "exit" {
-            break;
-        }
-        if input == "clear" {
-            terminal_clear();
+    let mut total_diff = 0.0;
+    let count = 6280000;
+    let mut max_diff = 0.0;
+    let mut cx = 0;
+    for i in -count..=count {
+        let a = Fx::new(i) / Fx::new(10000);
+        if a.cos() == Fx::new(0) {
             continue;
         }
-        println!("echo:{}", input);
+        cx += 1;
+        let asin = a.tan();
+        let af64sin = (i as f64 / 10000.).tan();
+        let diff = (asin.get_f64() - af64sin).abs();
+        if diff > max_diff {
+            max_diff = diff;
+        }
+        total_diff += diff;
+        if diff > 100. {
+            println!(
+                "i:{}, sin(i/10000):{} f64 sin(i/10000):{}, diff:{}",
+                a, asin, af64sin, diff
+            );
+        }
     }
-    application_wrapper_exit();
+    total_diff /= cx as f64;
+    println!("average difference:{total_diff}");
+    println!("max difference:{max_diff}");
 }
