@@ -455,5 +455,29 @@ impl Facing {
 }
 
 impl GameState {
-    pub fn tick(&mut self) {}
+    pub fn tick(&mut self, cmds: Vec<EntityGameCmd>) {
+        for i in cmds {
+            let ent = i.entity;
+            let cmd = i.cmd;
+            match cmd {
+                EntityCmd::FreeFall => {}
+                EntityCmd::HoldPosition => {}
+                EntityCmd::Pursue { target } => {}
+                EntityCmd::Intercept { target } => {}
+                EntityCmd::Ram { target } => {}
+                EntityCmd::Accelerate { desired_velocity } => {}
+                EntityCmd::MoveTo { point } => {}
+                EntityCmd::LookAtPoint { at } => {}
+                EntityCmd::LookAtEntity { entity } => {}
+                EntityCmd::FireWeaponDirection { direction, weapon } => {}
+                EntityCmd::FireWeaponAtPoint { point, weapon } => {}
+                EntityCmd::FireWeapon { target, weapon } => {}
+                EntityCmd::Repair {
+                    to_repair_facing,
+                    to_repair_component,
+                } => {}
+                EntityCmd::Wait => {}
+            }
+        }
+    }
 }
